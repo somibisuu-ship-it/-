@@ -2,75 +2,210 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#10131d">
-  <title>TwoDay TUDARI</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#e6007e">
+  <title>랜선 투데이 투다리</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8' shape-rendering='crispEdges'%3E%3Crect width='8' height='8' fill='%23e6007e'/%3E%3Cpath fill='%23fff' d='M1 2h1v3h1V2h1v4H1zM5 3h2v1H5zM6 2h1v3H6z'/%3E%3C/svg%3E">
+  <link rel="preload" href="/assets/fonts/Galmuri11.subset.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/style.css">
   <script src="/socket.io/socket.io.js" defer></script>
+  <script src="/shared/world.js" defer></script>
+  <script src="/js/sprites.js" defer></script>
+  <script src="/js/props.js" defer></script>
+  <script src="/js/ui.js" defer></script>
+  <script src="/js/audio.js" defer></script>
   <script src="/game.js" defer></script>
 </head>
 <body>
-  <main class="page" id="lobby">
-    <header class="intro">
-      <h1>TwoDay TUDARI</h1>
+  <main id="lobby" class="lobby">
+    <header class="lobby-head">
+      <h1 class="logo"><span class="logo-uplus">U+</span><span class="logo-text">랜선 <b>투데이 투다리</b></span></h1>
     </header>
 
-    <section class="panel avatar-panel" aria-labelledby="avatar-title">
-      <h2 id="avatar-title">캐릭터 만들기</h2>
-      <div class="avatar-builder">
-        <canvas id="avatar-preview" width="240" height="300" aria-label="아바타 미리보기"></canvas>
-        <div class="avatar-options">
-          <label class="nick-field">닉네임
+    <div class="lobby-grid">
+      <section class="card preview-card" aria-label="내 캐릭터">
+        <div class="preview-stage">
+          <canvas id="avatar-preview" width="288" height="360" aria-label="아바타 미리보기"></canvas>
+        </div>
+        <div class="preview-turn">
+          <button id="preview-left" class="px-btn small" type="button" aria-label="왼쪽으로 돌리기">◀</button>
+          <span id="preview-name" class="preview-name"></span>
+          <button id="preview-right" class="px-btn small" type="button" aria-label="오른쪽으로 돌리기">▶</button>
+        </div>
+      </section>
+
+      <section class="card form-card">
+        <div id="editor-box" class="editor-box">
+          <label class="field">
+            <span class="field-label">닉네임</span>
             <input id="nickname" type="text" maxlength="10" placeholder="닉네임을 입력해주세요." autocomplete="nickname">
           </label>
           <div id="avatar-options" class="option-groups"></div>
         </div>
-      </div>
-    </section>
 
-    <section class="panel channels" aria-labelledby="channels-title">
-      <div class="section-heading">
-        <div>
-          <h2 id="channels-title">채널 선택</h2>
-          <p>원하는 채널을 선택해 입장하세요.</p>
+        <div id="resume-box" class="resume-box" hidden>
+          <p class="resume-title" id="resume-title"></p>
+          <p class="resume-sub" id="resume-sub"></p>
         </div>
-        <div class="legend" aria-label="채널 상태 안내">
-          <span><i class="status-dot available"></i>입장 가능</span>
-          <span><i class="status-dot full"></i>정원 마감</span>
+
+        <div class="room-box">
+          <span class="field-label">방 코드</span>
+          <div id="room-list" class="room-list" role="radiogroup" aria-label="방 코드" aria-live="polite">
+            <p class="loading">방 정보를 불러오는 중입니다.</p>
+          </div>
         </div>
-      </div>
-      <div id="channel-list" class="channel-grid" aria-live="polite">
-        <p class="loading">채널 정보를 불러오는 중입니다.</p>
-      </div>
-      <p id="notice" class="notice" role="status">서버에 연결하고 있습니다.</p>
-    </section>
-    <footer>즐거운 대화가 있는 곳, 투데이 투다리</footer>
+
+        <div class="cta-row">
+          <button id="btn-enter" class="px-btn primary big" type="button">선택 완료 · 문 앞으로</button>
+          <button id="btn-edit" class="px-btn big" type="button" hidden>캐릭터 수정</button>
+        </div>
+        <p id="notice" class="notice" role="status" data-error="false">서버에 연결하고 있습니다.</p>
+      </section>
+    </div>
+    <footer class="developer-credit">Developed by Ryuna Kim</footer>
   </main>
 
-  <section id="tudari" class="tudari" hidden aria-label="투다리 내부">
-    <header class="tudari-bar">
-      <div><strong id="room-name">MP1</strong><span id="room-count"></span></div>
-      <button id="leave-room" class="bar-button" type="button">나가기</button>
-    </header>
-    <div class="stage">
-      <canvas id="scene" width="960" height="600" aria-label="투다리 내부 화면"></canvas>
-      <div id="cheers-banner" class="cheers-banner" hidden></div>
-      <div id="joystick" class="joystick" hidden><i></i></div>
-    </div>
-    <div class="actions">
-      <div id="seat-buttons" class="chip-row" aria-label="좌석 선택"></div>
-      <div class="chip-row" id="drink-buttons" aria-label="술 선택"></div>
-      <div class="chip-row">
-        <button id="act-pour" type="button">따라주기</button>
-        <button id="act-raise" type="button">잔 들기</button>
-        <button id="act-sip" type="button">마시기</button>
-        <button id="act-cheers" type="button">건배!</button>
+  <div id="game" class="game" hidden>
+    <section class="stage" id="stage" aria-label="투다리 매장">
+      <canvas id="scene"></canvas>
+      <p id="outside-hint" class="outside-hint" hidden>문 앞으로 걸어가서 [들어가기]를 눌러 주세요.</p>
+
+      <div class="hud-top">
+        <div class="room-chip"><b id="room-name">MP1</b><span id="room-count">1 / 6</span></div>
+        <button id="btn-leave" class="px-btn small" type="button">나가기</button>
+      </div>
+      <div id="social-tools" class="social-tools">
+        <button id="emote-toggle" class="px-btn small" type="button" aria-expanded="false" aria-controls="emote-buttons">😊 감정</button>
+        <div id="emote-buttons" class="emote-buttons" role="group" aria-label="감정표현">
+          <button class="px-btn small" data-emote="smile" type="button" aria-label="웃기">😊</button>
+          <button class="px-btn small" data-emote="laugh" type="button" aria-label="크게 웃기">😂</button>
+          <button class="px-btn small" data-emote="cry" type="button" aria-label="울기">😭</button>
+          <button class="px-btn small" data-emote="angry" type="button" aria-label="화내기">😡</button>
+          <button class="px-btn small" data-emote="heart" type="button" aria-label="하트">❤️</button>
+        </div>
+        <div class="audio-controls">
+          <button class="px-btn small" data-audio="bgm" type="button">🎵<span>배경음 ON</span></button>
+          <button class="px-btn small" data-audio="sfx" type="button">🔊<span>효과음 ON</span></button>
+        </div>
+      </div>
+
+      <div class="bottom-ui">
+        <div id="cheers-box" class="rpg cheers-box" hidden role="status">
+          <div class="cheers-who" id="cheers-who"></div>
+          <div class="cheers-lines" id="cheers-lines"></div>
+          <div class="cheers-foot">
+            <div class="cheers-count" id="cheers-count"></div>
+            <ul class="cheers-members" id="cheers-members"></ul>
+            <button id="btn-cheers-reply" class="px-btn primary" type="button" hidden>위하여!</button>
+          </div>
+        </div>
+
+        <div class="pad-row">
+          <div id="joystick" class="joystick" hidden aria-label="이동 조이스틱"><i></i></div>
+          <div class="pad-actions">
+            <div id="ctx-actions" class="ctx-actions" aria-live="polite"></div>
+            <div id="action-bar" class="action-bar" hidden>
+              <button id="act-drink" class="px-btn" type="button"><i id="act-drink-icon" class="icon"></i><span id="act-drink-label">술 고르기</span></button>
+              <button id="act-pour" class="px-btn" type="button">따라주기</button>
+              <button id="act-raise" class="px-btn" type="button">잔 들기</button>
+              <button id="act-sip" class="px-btn" type="button">마시기</button>
+              <button id="act-cheers" class="px-btn accent" type="button">건배 제의</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <button id="chat-toggle" class="px-btn chat-toggle" type="button" aria-expanded="false">채팅 <span id="chat-badge" class="badge" hidden>0</span></button>
+      <div id="toast" class="toast" hidden role="alert"></div>
+      <footer class="developer-credit game-credit">Developed by Ryuna Kim</footer>
+    </section>
+
+    <aside id="phone" class="phone" aria-label="스마트폰 채팅">
+      <div class="phone-shell">
+        <div class="phone-status"><span id="phone-clock">9:41</span><span>5G ▮▮▮</span></div>
+        <header class="phone-head">
+          <div><strong>랜선 투다리 단체방</strong><small id="phone-online">1명</small></div>
+          <button id="chat-close" class="chat-close" type="button" aria-label="채팅 접기">▼</button>
+        </header>
+        <ol id="chat-log" class="chat-log" aria-live="polite"></ol>
+        <form id="chat-form" class="chat-form" autocomplete="off">
+          <input id="chat-input" type="text" maxlength="120" placeholder="메시지 입력" enterkeyhint="send">
+          <button class="send" type="submit" aria-label="보내기">▶</button>
+        </form>
+      </div>
+    </aside>
+  </div>
+
+  <div id="modal-pour" class="modal" hidden>
+    <div class="rpg dialog" role="dialog" aria-modal="true" aria-labelledby="pour-title">
+      <h2 id="pour-title">누구에게 따라줄까요?</h2>
+      <ul id="pour-list" class="radio-list"></ul>
+      <p id="pour-empty" class="dialog-note" hidden>테이블에 앉은 다른 사람이 없어요.</p>
+      <div class="dialog-actions">
+        <button id="pour-confirm" class="px-btn primary" type="button">따라주기</button>
+        <button class="px-btn" type="button" data-close>취소</button>
       </div>
     </div>
-    <div class="chat">
-      <ul id="chat-log" aria-live="polite"></ul>
-      <form id="chat-form"><input id="chat-input" maxlength="120" placeholder="메시지 입력" autocomplete="off"><button>전송</button></form>
+  </div>
+
+  <div id="modal-cheers" class="modal" hidden>
+    <div class="rpg dialog" role="dialog" aria-modal="true" aria-labelledby="cheers-title">
+      <h2 id="cheers-title">건배 제의</h2>
+      <input id="cheers-input" class="rpg-input" type="text" maxlength="60" placeholder="건배사를 입력하세요" autocomplete="off">
+      <div class="dialog-actions">
+        <button id="cheers-start" class="px-btn primary" type="button">위하여!</button>
+        <button class="px-btn" type="button" data-close>취소</button>
+      </div>
     </div>
-  </section>
+  </div>
+
+  <div id="modal-drink" class="modal" hidden>
+    <div class="rpg dialog wide" role="dialog" aria-modal="true" aria-labelledby="drink-title">
+      <h2 id="drink-title">어떤 술로 할까요?</h2>
+      <div id="drink-grid" class="drink-grid"></div>
+      <div id="drink-mix" class="drink-mix" hidden>
+        <div class="mix-labels"><span id="mix-a"></span><span id="mix-b"></span></div>
+        <input id="mix-ratio" type="range" min="10" max="90" step="5" value="30" aria-label="섞는 비율">
+      </div>
+      <div class="dialog-actions">
+        <button id="drink-confirm" class="px-btn primary" type="button">선택</button>
+        <button class="px-btn" type="button" data-close>닫기</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-door" class="modal" hidden>
+    <div class="rpg dialog" role="dialog" aria-modal="true" aria-labelledby="door-title">
+      <h2 id="door-title">매장 밖으로 나갈까요?</h2>
+      <div class="dialog-actions">
+        <button id="door-confirm" class="px-btn primary" type="button">나가기</button>
+        <button class="px-btn" type="button" data-close>취소</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-view" class="modal dim" hidden>
+    <div class="view-wrap" role="dialog" aria-modal="true" aria-labelledby="view-title">
+      <div id="view-device" class="view-device"></div>
+      <div class="rpg dialog view-dialog">
+        <h2 id="view-title"></h2>
+        <p id="view-message" class="view-message"></p>
+        <p id="view-note" class="view-note"></p>
+        <div class="dialog-actions">
+          <button id="view-close" class="px-btn primary" type="button" data-close>닫기</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="modal-staff" class="modal" hidden>
+    <div class="rpg dialog" role="dialog" aria-modal="true" aria-labelledby="staff-title">
+      <h2 id="staff-title">투다리 직원</h2>
+      <p id="staff-message" class="view-message"></p>
+      <div class="dialog-actions">
+        <button id="staff-receive" class="px-btn primary" type="button">숙취해소제 받기</button>
+        <button class="px-btn" type="button" data-close>괜찮아요</button>
+      </div>
+    </div>
+  </div>
 </body>
 </html>
