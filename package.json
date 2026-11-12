@@ -1,0 +1,18 @@
+{
+  "name": "random-today-tudari-railway",
+  "version": "1.0.0",
+  "private": true,
+  "description": "6-player realtime U+ x Tudari social metaverse",
+  "main": "server.js",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "check": "node --check server.js && node --check public/game.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "helmet": "^8.1.0",
+    "socket.io": "^4.8.1"
+  }
+}
