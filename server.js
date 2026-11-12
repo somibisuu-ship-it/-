@@ -9,7 +9,7 @@ const app = express();
 app.disable('x-powered-by');
 app.use(helmet({ contentSecurityPolicy: false, crossOriginResourcePolicy: false }));
 app.get('/health', (_req, res) => res.status(200).json({ ok: true, uptime: process.uptime() }));
-app.use(express.static(path.join(__dirname, 'public'), { maxAge: '1h' }));
+app.use(express.static(path.join(__dirname, 'public'), { setHeaders: res => res.setHeader('Cache-Control', 'no-cache') }));
 app.get('*', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
 const server = http.createServer(app);
@@ -21,6 +21,8 @@ const io = new Server(server, {
 });
 
 const rooms = new Map();
+const CHANNELS = ['MP1', 'MP2', 'MP3'];
+const ROOM_CAPACITY = 6;
 const SEATS = [
   { x: 0.50, y: 0.43, dir: 'down' }, { x: 0.62, y: 0.49, dir: 'left' },
   { x: 0.61, y: 0.61, dir: 'up' }, { x: 0.50, y: 0.66, dir: 'up' },
@@ -28,34 +30,71 @@ const SEATS = [
 ];
 const spawn = i => ({ x: 0.22 + (i % 3) * 0.045, y: 0.81, dir: 'up' });
 const cleanText = (v, max = 80) => String(v ?? '').replace(/[<>]/g, '').trim().slice(0, max);
-const roomId = v => cleanText(v, 12).toUpperCase().replace(/[^A-Z0-9가-힣_-]/g, '') || 'MP';
+const roomId = v => cleanText(v, 12).toUpperCase().replace(/[^A-Z0-9가-힣_-]/g, '') || 'MP1';
 const snapshot = room => ({ players: [...room.players.values()], seats: room.seats });
+function channelSnapshot() {
+  return CHANNELS.map(id => {
+    const count = rooms.get(id)?.players.size || 0;
+    return { id, count, capacity: ROOM_CAPACITY, full: count >= ROOM_CAPACITY };
+  });
+}
 function getRoom(id) {
   if (!rooms.has(id)) rooms.set(id, { players: new Map(), seats: Array(6).fill(null), messages: [] });
   return rooms.get(id);
 }
 function broadcast(id) { const room = rooms.get(id); if (room) io.to(id).emit('roomState', snapshot(room)); }
+function broadcastChannels() { io.emit('channelsState', channelSnapshot()); }
+function removePlayer(socket) {
+  const id = socket.data.room, room = rooms.get(id);
+  if (!room) return;
+  const player = room.players.get(socket.id);
+  if (player && player.seat !== null) room.seats[player.seat] = null;
+  room.players.delete(socket.id);
+  socket.leave(id);
+  socket.data.room = null;
+  if (room.players.size === 0) rooms.delete(id);
+  else {
+    io.to(id).emit('systemMessage', `${player?.name || '사용자'}님이 나갔습니다.`);
+    broadcast(id);
+  }
+  broadcastChannels();
+}
 
 io.on('connection', socket => {
+  socket.emit('channelsState', channelSnapshot());
   socket.on('joinRoom', (payload = {}, reply = () => {}) => {
     const id = roomId(payload.room);
+    if (!CHANNELS.includes(id)) {
+      return reply({ ok: false, code: 'INVALID_CHANNEL', message: 'MP1, MP2, MP3 중 하나를 선택해 주세요.' });
+    }
+    if (socket.data.room) {
+      const currentRoom = rooms.get(socket.data.room);
+      if (socket.data.room === id && currentRoom?.players.has(socket.id)) {
+        return reply({ ok: true, room: id, selfId: socket.id, state: snapshot(currentRoom) });
+      }
+      return reply({ ok: false, code: 'ALREADY_IN_CHANNEL', message: '이미 다른 채널에 입장했습니다.' });
+    }
     const room = getRoom(id);
-    if (room.players.size >= 6) return reply({ ok: false, code: 'ROOM_FULL', message: '이 방은 6명 정원입니다.' });
+    if (room.players.size >= ROOM_CAPACITY) return reply({ ok: false, code: 'ROOM_FULL', message: '이 방은 6명 정원입니다.' });
     const p = {
       id: socket.id,
       name: cleanText(payload.name || '친구', 10),
       avatar: {
-        base: ['a','b'].includes(payload.avatar?.base) ? payload.avatar.base : 'a',
+        gender: ['male','female'].includes(payload.avatar?.gender) ? payload.avatar.gender : 'male',
         eyes: ['round','smile','sleepy'].includes(payload.avatar?.eyes) ? payload.avatar.eyes : 'round',
         hair: ['short','bob','long'].includes(payload.avatar?.hair) ? payload.avatar.hair : 'short',
         hairColor: /^#[0-9a-f]{6}$/i.test(payload.avatar?.hairColor || '') ? payload.avatar.hairColor : '#201a25',
-        outfit: ['uplus','lg','hanwha','samsung','doosan','kia','casual'].includes(payload.avatar?.outfit) ? payload.avatar.outfit : 'uplus'
+        outfit: ['basic','uplus','lg','hanwha','samsung','doosan','kia','casual'].includes(payload.avatar?.outfit) ? payload.avatar.outfit : 'basic'
       },
       ...spawn(room.players.size), seat: null, glass: 0, drink: '빈 잔', drunk: 0, raised: false, bubble: ''
     };
     room.players.set(socket.id, p); socket.join(id); socket.data.room = id;
     reply({ ok: true, room: id, selfId: socket.id, state: snapshot(room) });
-    socket.to(id).emit('systemMessage', `${p.name}님이 들어왔습니다.`); broadcast(id);
+    socket.to(id).emit('systemMessage', `${p.name}님이 들어왔습니다.`); broadcast(id); broadcastChannels();
+  });
+  socket.on('leaveRoom', (reply = () => {}) => {
+    removePlayer(socket);
+    reply({ ok: true });
   });
 
   socket.on('move', data => {
@@ -81,7 +120,7 @@ io.on('connection', socket => {
   socket.on('raiseGlass', () => { const id=socket.data.room,r=rooms.get(id),p=r?.players.get(socket.id);if(!p)return;p.raised=!p.raised;broadcast(id); });
   socket.on('drinkSip', () => { const id=socket.data.room,r=rooms.get(id),p=r?.players.get(socket.id);if(!p||p.glass<=0)return;p.glass=Math.max(0,p.glass-25);p.drunk=Math.min(4,p.drunk+.45);p.raised=false;broadcast(id); });
   socket.on('cheers', raw => { const id=socket.data.room,r=rooms.get(id),p=r?.players.get(socket.id);if(!p)return;const base=cleanText(raw,60).replace(/위하여!?/g,'').trim()||'오늘의 우리를';for(const x of r.players.values())x.raised=true;io.to(id).emit('cheers',{by:p.name,text:`${base} 위하여!`});broadcast(id); });
-  socket.on('disconnect', () => { const id=socket.data.room,r=rooms.get(id);if(!r)return;const p=r.players.get(socket.id);if(p?.seat!==null)r.seats[p.seat]=null;r.players.delete(socket.id);if(r.players.size===0)rooms.delete(id);else{io.to(id).emit('systemMessage',`${p?.name||'사용자'}님이 나갔습니다.`);broadcast(id);} });
+  socket.on('disconnect', () => removePlayer(socket));
 });
 
 const PORT = process.env.PORT || 3000;

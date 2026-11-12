@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#10131d">
+  <title>TwoDay TUDARI</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/socket.io/socket.io.js" defer></script>
+  <script src="/game.js" defer></script>
+</head>
+<body>
+  <main class="page" id="lobby">
+    <header class="intro">
+      <h1>TwoDay TUDARI</h1>
+    </header>
+
+    <section class="panel avatar-panel" aria-labelledby="avatar-title">
+      <h2 id="avatar-title">캐릭터 만들기</h2>
+      <div class="avatar-builder">
+        <canvas id="avatar-preview" width="240" height="300" aria-label="아바타 미리보기"></canvas>
+        <div class="avatar-options">
+          <label class="nick-field">닉네임
+            <input id="nickname" type="text" maxlength="10" placeholder="닉네임을 입력해주세요." autocomplete="nickname">
+          </label>
+          <div id="avatar-options" class="option-groups"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel channels" aria-labelledby="channels-title">
+      <div class="section-heading">
+        <div>
+          <h2 id="channels-title">채널 선택</h2>
+          <p>원하는 채널을 선택해 입장하세요.</p>
+        </div>
+        <div class="legend" aria-label="채널 상태 안내">
+          <span><i class="status-dot available"></i>입장 가능</span>
+          <span><i class="status-dot full"></i>정원 마감</span>
+        </div>
+      </div>
+      <div id="channel-list" class="channel-grid" aria-live="polite">
+        <p class="loading">채널 정보를 불러오는 중입니다.</p>
+      </div>
+      <p id="notice" class="notice" role="status">서버에 연결하고 있습니다.</p>
+    </section>
+    <footer>즐거운 대화가 있는 곳, 투데이 투다리</footer>
+  </main>
+
+  <section id="tudari" class="tudari" hidden aria-label="투다리 내부">
+    <header class="tudari-bar">
+      <div><strong id="room-name">MP1</strong><span id="room-count"></span></div>
+      <button id="leave-room" class="bar-button" type="button">나가기</button>
+    </header>
+    <div class="stage">
+      <canvas id="scene" width="960" height="600" aria-label="투다리 내부 화면"></canvas>
+      <div id="cheers-banner" class="cheers-banner" hidden></div>
+      <div id="joystick" class="joystick" hidden><i></i></div>
+    </div>
+    <div class="actions">
+      <div id="seat-buttons" class="chip-row" aria-label="좌석 선택"></div>
+      <div class="chip-row" id="drink-buttons" aria-label="술 선택"></div>
+      <div class="chip-row">
+        <button id="act-pour" type="button">따라주기</button>
+        <button id="act-raise" type="button">잔 들기</button>
+        <button id="act-sip" type="button">마시기</button>
+        <button id="act-cheers" type="button">건배!</button>
+      </div>
+    </div>
+    <div class="chat">
+      <ul id="chat-log" aria-live="polite"></ul>
+      <form id="chat-form"><input id="chat-input" maxlength="120" placeholder="메시지 입력" autocomplete="off"><button>전송</button></form>
+    </div>
+  </section>
+</body>
+</html>
